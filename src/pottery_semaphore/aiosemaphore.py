@@ -6,6 +6,7 @@ AIORedlock with async Redis primitives for counter and queue operations.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
@@ -78,6 +79,10 @@ class AIOSemaphore:
         self._lock: AIORedlock | None = None
         self._counter: AIORedisCounter | None = None
         self._notify: AIORedisSimpleQueue | None = None
+        # Local lock to serialize access to AIORedlock within a single process.
+        # This prevents race conditions where concurrent coroutines corrupt
+        # the AIORedlock's internal state (UUID tracking) when interleaved.
+        self._local_lock: asyncio.Lock | None = None
 
     async def _ensure_initialized(self) -> None:
         """Lazily initialize Redis connections and primitives."""
@@ -111,6 +116,9 @@ class AIOSemaphore:
             key=f"{self._KEY_PREFIX}:{self._key}:notify",
         )
 
+        # Local lock to serialize access to AIORedlock within this process
+        self._local_lock = asyncio.Lock()
+
         # Initialize semaphore state
         await self._init_semaphore()
         self._initialized = True
@@ -120,8 +128,9 @@ class AIOSemaphore:
         assert self._lock is not None
         assert self._counter is not None
         assert self._notify is not None
+        assert self._local_lock is not None
 
-        async with self._lock:
+        async with self._local_lock, self._lock:
             if not await self._counter.exists("permits"):
                 await self._counter.set("permits", self._value)
                 await self._counter.set("initial", self._value)
@@ -184,8 +193,9 @@ class AIOSemaphore:
         assert self._lock is not None
         assert self._counter is not None
         assert self._notify is not None
+        assert self._local_lock is not None
 
-        async with self._lock:
+        async with self._local_lock, self._lock:
             current = await self._counter.get("permits")
 
             if current > 0:
@@ -230,11 +240,12 @@ class AIOSemaphore:
         assert self._lock is not None
         assert self._counter is not None
         assert self._notify is not None
+        assert self._local_lock is not None
 
         if n < 1:
             raise ValueError("n must be >= 1")
 
-        async with self._lock:
+        async with self._local_lock, self._lock:
             current = await self._counter.get("permits")
             initial_val = await self._counter.get("initial", self._value)
 

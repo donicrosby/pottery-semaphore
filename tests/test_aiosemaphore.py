@@ -300,3 +300,111 @@ class TestAIOSemaphoreSharedState:
         assert "AIOSemaphore" in repr_str
         assert unique_key in repr_str
         assert "bounded=True" in repr_str
+
+
+@requires_docker
+class TestAIOSemaphoreLockRaceCondition:
+    """Tests to verify concurrent coroutine access to shared AIORedlock."""
+
+    async def test_concurrent_acquire_release_race(
+        self, aioredis_client: AIORedis, unique_key: str
+    ) -> None:
+        """Test that concurrent acquire/release doesn't corrupt lock state.
+
+        This test specifically targets a race condition where multiple coroutines
+        sharing the same AIORedlock instance can corrupt its internal state
+        (e.g., UUID tracking) when interleaved at await points.
+        """
+        sem = AIOSemaphore(value=1, key=unique_key, masters={aioredis_client})
+        errors: list[Exception] = []
+        iterations = 20
+
+        async def acquire_release_cycle(task_id: int, semaphore: AIOSemaphore) -> None:
+            """Rapidly acquire and release to trigger interleaving."""
+            for _ in range(iterations):
+                try:
+                    # Use non-blocking to create more contention
+                    acquired = await semaphore.acquire(blocking=True, timeout=2)
+                    if acquired:
+                        # Small delay to allow other coroutines to try acquiring
+                        await asyncio.sleep(0.01)
+                        await semaphore.release()
+                except Exception as e:
+                    errors.append(e)
+                    raise
+
+        # Run multiple concurrent tasks to maximize interleaving
+        tasks = [asyncio.create_task(acquire_release_cycle(i, sem)) for i in range(5)]
+
+        # Gather with return_exceptions to capture all errors
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Check for any ReleaseUnlockedLock or other errors
+        for result in results:
+            if isinstance(result, Exception):
+                errors.append(result)
+
+        # If we hit the race condition, we'll see ReleaseUnlockedLock
+        assert not errors, f"Race condition errors: {errors}"
+
+    async def test_holder_waiter_lock_contention(
+        self, aioredis_client: AIORedis, unique_key: str
+    ) -> None:
+        """Reproduce the exact scenario from the failing test.
+
+        Multiple iterations to increase chance of hitting the race condition.
+        """
+        errors: list[Exception] = []
+
+        async def run_iteration(
+            semaphore: AIOSemaphore,
+            acquired_event: asyncio.Event,
+            release_event: asyncio.Event,
+        ) -> None:
+            async def holder() -> None:
+                await semaphore.acquire()
+                acquired_event.set()
+                await release_event.wait()
+                await semaphore.release()
+
+            async def waiter() -> None:
+                await acquired_event.wait()
+                # This creates contention on the shared lock
+                result = await semaphore.acquire(blocking=True, timeout=2)
+                if result:
+                    await semaphore.release()
+
+            holder_task = asyncio.create_task(holder())
+            waiter_task = asyncio.create_task(waiter())
+
+            # Shorter sleep to increase race window
+            await asyncio.sleep(0.1)
+            release_event.set()
+
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(holder_task, waiter_task),
+                    timeout=5,
+                )
+            except Exception:
+                # Cancel tasks on error
+                holder_task.cancel()
+                waiter_task.cancel()
+                await asyncio.gather(holder_task, waiter_task, return_exceptions=True)
+                raise
+
+        for iteration in range(10):
+            key = f"{unique_key}-{iteration}"
+            sem = AIOSemaphore(value=1, key=key, masters={aioredis_client})
+            acquired = asyncio.Event()
+            can_release = asyncio.Event()
+
+            try:
+                await run_iteration(sem, acquired, can_release)
+            except Exception as e:
+                errors.append(e)
+
+        assert not errors, (
+            f"Lock race errors after {len(errors)} failures: "
+            f"{errors[0] if errors else None}"
+        )
