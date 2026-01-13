@@ -178,10 +178,9 @@ class TestSemaphoreContextManager:
         """Test that permit is released even on exception."""
         sem = Semaphore(value=1, key=unique_key, masters={redis_client})
 
-        with pytest.raises(RuntimeError):
-            with sem:
-                assert sem.value == 0
-                raise RuntimeError("test error")
+        with pytest.raises(RuntimeError), sem:
+            assert sem.value == 0
+            raise RuntimeError("test error")
 
         # Permit should still be released
         assert sem.value == 1

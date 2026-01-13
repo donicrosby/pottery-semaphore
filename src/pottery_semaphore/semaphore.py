@@ -6,14 +6,15 @@ Redlock, RedisCounter, and RedisSimpleQueue primitives.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, FrozenSet, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from pottery import (
     ContextTimer,
     QueueEmptyError,
     RedisCounter,
-    Redlock,
     RedisSimpleQueue,
+    Redlock,
 )
 
 from .exceptions import BoundedSemaphoreError
@@ -71,7 +72,7 @@ class Semaphore:
         self._value = value
         self._bounded = bounded
         self._key = key
-        self._masters: FrozenSet[Redis] = frozenset(masters)
+        self._masters: frozenset[Redis] = frozenset(masters)
 
         if not self._masters:
             from redis import Redis as RedisClient

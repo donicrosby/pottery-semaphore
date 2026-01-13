@@ -7,6 +7,7 @@ and share state through Redis.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import multiprocessing
 import time
 from typing import TYPE_CHECKING
@@ -46,10 +47,8 @@ def _multiprocess_worker(
         results_queue.put((worker_id, "error", str(e)))
     finally:
         if r is not None:
-            try:
+            with contextlib.suppress(Exception):
                 r.close()
-            except Exception:
-                pass
 
 
 @requires_docker
@@ -159,9 +158,7 @@ class TestSyncAsyncInterop:
 class TestMultiProcess:
     """Tests for multi-process semaphore usage."""
 
-    def test_multiprocess_semaphore(
-        self, docker_redis: str, unique_key: str
-    ) -> None:
+    def test_multiprocess_semaphore(self, docker_redis: str, unique_key: str) -> None:
         """Test semaphore works across multiple processes."""
         from redis import Redis
 
@@ -222,7 +219,9 @@ class TestMultiProcess:
 class TestAsyncPrimitives:
     """Tests for the async primitive classes."""
 
-    async def test_aio_counter(self, aioredis_client: AIORedis, unique_key: str) -> None:
+    async def test_aio_counter(
+        self, aioredis_client: AIORedis, unique_key: str
+    ) -> None:
         """Test AIORedisCounter operations."""
         from pottery_semaphore import AIORedisCounter
 

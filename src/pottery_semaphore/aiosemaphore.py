@@ -6,7 +6,8 @@ AIORedlock with async Redis primitives for counter and queue operations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, FrozenSet, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from pottery import AIORedlock, ContextTimer
 
@@ -69,7 +70,7 @@ class AIOSemaphore:
         self._value = value
         self._bounded = bounded
         self._key = key
-        self._masters: FrozenSet[AIORedis] = frozenset(masters)
+        self._masters: frozenset[AIORedis] = frozenset(masters)
         self._initialized = False
         self._raise_on_redis_errors = raise_on_redis_errors
 
@@ -259,8 +260,4 @@ class AIOSemaphore:
         await self.release()
 
     def __repr__(self) -> str:
-        return (
-            f"<{self.__class__.__name__} "
-            f"key={self._key!r} "
-            f"bounded={self._bounded}>"
-        )
+        return f"<{self.__class__.__name__} key={self._key!r} bounded={self._bounded}>"

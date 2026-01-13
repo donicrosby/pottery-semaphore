@@ -33,21 +33,25 @@ Example usage (async):
 
 from __future__ import annotations
 
-from typing import Final, Tuple
+from importlib.metadata import PackageNotFoundError, version
+from typing import Final
 
 from .aioprimitives import AIORedisCounter, AIORedisSimpleQueue, QueueEmpty
 from .aiosemaphore import AIOSemaphore
 from .exceptions import BoundedSemaphoreError, SemaphoreError
 from .semaphore import Semaphore
 
-__all__: Final[Tuple[str, ...]] = (
-    "Semaphore",
-    "AIOSemaphore",
-    "SemaphoreError",
-    "BoundedSemaphoreError",
+__all__: Final[tuple[str, ...]] = (
     "AIORedisCounter",
     "AIORedisSimpleQueue",
+    "AIOSemaphore",
+    "BoundedSemaphoreError",
     "QueueEmpty",
+    "Semaphore",
+    "SemaphoreError",
 )
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("pottery-semaphore")
+except PackageNotFoundError:
+    __version__ = "unknown"

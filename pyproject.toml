@@ -32,3 +32,37 @@ testpaths = ["tests"]
 markers = [
     "integration: marks tests as integration tests (require Docker)",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes (undefined names, unused imports, etc.)
+    "W",      # pycodestyle warnings
+    "I",      # isort (import sorting)
+    "UP",     # pyupgrade (modernize Python syntax)
+    "B",      # flake8-bugbear (common bugs and design problems)
+    "SIM",    # flake8-simplify (simplify code)
+    "C90",    # McCabe complexity
+    "PLR",    # Pylint refactor (too many arguments, branches, etc.)
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "SIM105", # contextlib.suppress - prefer explicit try/except for clarity with comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow magic values in tests (common for assertions)
+"tests/**/*.py" = ["PLR2004"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 12
+max-returns = 6
+max-statements = 50

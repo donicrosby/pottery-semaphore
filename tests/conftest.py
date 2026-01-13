@@ -52,7 +52,9 @@ def redis_port() -> int:
 
 
 @pytest.fixture(scope="session")
-def docker_redis(docker_compose_file: str, redis_port: int) -> Generator[str, None, None]:
+def docker_redis(
+    docker_compose_file: str, redis_port: int
+) -> Generator[str, None, None]:
     """Start Redis in Docker for integration tests.
 
     Returns the Redis URL.
