@@ -1,0 +1,69 @@
+[project]
+name = "pottery-semaphore"
+version = "0.1.0"
+description = "A Redis/Valkey distributed Semaphore using the Pottery library"
+readme = "README.md"
+authors = [
+    { name = "Doni Crosby", email = "doni@crosby.email" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pottery>=3.0.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.21,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-docker>=3.1.1",
+    "ruff>=0.14.11",
+    "ty>=0.0.11",
+    "types-redis>=4.6.0.20241004",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (require Docker)",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes (undefined names, unused imports, etc.)
+    "W",      # pycodestyle warnings
+    "I",      # isort (import sorting)
+    "UP",     # pyupgrade (modernize Python syntax)
+    "B",      # flake8-bugbear (common bugs and design problems)
+    "SIM",    # flake8-simplify (simplify code)
+    "C90",    # McCabe complexity
+    "PLR",    # Pylint refactor (too many arguments, branches, etc.)
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "SIM105", # contextlib.suppress - prefer explicit try/except for clarity with comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow magic values in tests (common for assertions)
+"tests/**/*.py" = ["PLR2004"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 12
+max-returns = 6
+max-statements = 50
